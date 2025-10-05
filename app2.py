@@ -10,14 +10,12 @@ app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_FILE_PATH = os.path.join(BASE_DIR, "dataset.csv")
 JSON_FILE_PATH = os.path.join(BASE_DIR, "params.json")
-DEFAULT_DATASET = os.path.join(BASE_DIR, "dataset_default.csv")
+DEFAULT_DATASET = os.path.join(BASE_DIR, "input_table.csv")
 OUTPUT_ZIP = os.path.join(BASE_DIR, "modelo_generado.zip")  # Nombre del ZIP que devolveremos
-
 
 @app.route("/")
 def index():
     return render_template("newPage.html")
-
 
 @app.route("/train", methods=["POST"])
 def train():
@@ -87,4 +85,4 @@ def train():
     )
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)
