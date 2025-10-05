@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEXO MINER</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">Data Submission</h1>
+
+  <!-- Input Section -->
+  <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-3xl mb-6">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700">Input Data</h2>
+
+    <!-- File Upload -->
+    <div class="mb-4">
+      <label class="block mb-2 text-gray-600">Upload CSV:</label>
+      <input type="file" id="csvFile" accept=".csv" class="block w-full text-gray-700 border border-gray-300 rounded p-2">
+    </div>
+
+    <div class="text-center text-gray-500 mb-3">OR</div>
+
+    <!-- Manual Entry -->
+    <div id="manualInput" class="space-y-2">
+      <div class="grid grid-cols-2 gap-4">
+        <input type="text" placeholder="tic_id" id="ticIdInput" class="border p-2 rounded" />
+        <input type="text" placeholder="sector_run" id="sectorRunInput" class="border p-2 rounded" />
+      </div>
+      <button id="addRow" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        Add Row
+      </button>
+    </div>
+  </div>
+
+  <!-- Display Table -->
+  <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-3xl mb-6">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700">Input Preview</h2>
+    <table class="min-w-full text-sm text-left border">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="px-4 py-2 border">tic_id</th>
+          <th class="px-4 py-2 border">sector_run</th>
+        </tr>
+      </thead>
+      <tbody id="inputTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Submit -->
+  <button id="submitData" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+    Submit to Model
+  </button>
+
+  <!-- Output -->
+<div id="outputSection" class="hidden bg-white shadow-lg rounded-2xl p-8 w-full max-w-6xl mt-10 border border-gray-200">
+  <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-3 flex items-center gap-2">
+    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" 
+      viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" 
+        d="M9 17v-2h6v2m-7-4h8M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2h-5l-2-2h-7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+    </svg>
+    Model Output
+  </h2>
+
+  <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+    <table id="outputTable" class="min-w-full text-sm text-left border-collapse">
+      <thead class="bg-gradient-to-r from-blue-600 to-blue-500 text-white">
+        <tr id="outputHeader" class="text-sm uppercase tracking-wider"></tr>
+      </thead>
+      <tbody id="outputBody" class="divide-y divide-gray-200"></tbody>
+    </table>
+  </div>
+
+  <div class="flex justify-end mt-6">
+    <button id="downloadCsv" 
+      class="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-md hover:bg-blue-700 transition-all duration-200 ease-in-out">
+      📥 Download CSV
+    </button>
+  </div>
+</div>
+
+  <script>
+    const inputTableBody = document.getElementById('inputTableBody');
+    const outputSection = document.getElementById('outputSection');
+    const outputHeader = document.getElementById('outputHeader');
+    const outputBody = document.getElementById('outputBody');
+    const rows = [];
+
+    document.getElementById('addRow').addEventListener('click', () => {
+      const ticId = document.getElementById('ticIdInput').value.trim();
+      const sectorRun = document.getElementById('sectorRunInput').value.trim();
+      if (ticId && sectorRun) {
+        rows.push({ tic_id: ticId, sector_run: sectorRun });
+        updateInputTable();
+        document.getElementById('ticIdInput').value = '';
+        document.getElementById('sectorRunInput').value = '';
+      }
+    });
+
+    function updateInputTable() {
+      inputTableBody.innerHTML = rows.map(r =>
+        `<tr><td class="border px-4 py-2">${r.tic_id}</td><td class="border px-4 py-2">${r.sector_run}</td></tr>`
+      ).join('');
+    }
+
+    document.getElementById('csvFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const lines = e.target.result.split('\n').slice(1);
+        lines.forEach(line => {
+          const [tic_id, sector_run] = line.split(',').map(v => v.trim());
+          if (tic_id && sector_run) rows.push({ tic_id, sector_run });
+        });
+        updateInputTable();
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('submitData').addEventListener('click', async () => {
+    if (rows.length === 0) return alert('Please add or upload data first.');
+
+    const submitBtn = document.getElementById('submitData');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Processing... ⏳';
+
+    try {
+        const response = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rows)
+        });
+
+        if (!response.ok) {
+        const errorText = await response.text();
+        alert('Server error: ' + response.statusText + '\n\nDetails: ' + errorText);
+        return;
+        }
+
+        const csvText = await response.text();
+        renderOutput(csvText);
+
+    } catch (err) {
+        alert('Network or timeout error: ' + err.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit to Model';
+    }
+});
+
+
+    function renderOutput(csvText) {
+      const [headerLine, ...lines] = csvText.trim().split('\n');
+      const headers = headerLine.split(',');
+      outputHeader.innerHTML = headers.map(h => `<th class="px-4 py-2 border">${h}</th>`).join('');
+      outputBody.innerHTML = lines.map(line => {
+        const values = line.split(',');
+        return `<tr>${values.map(v => `<td class="border px-4 py-2">${v}</td>`).join('')}</tr>`;
+      }).join('');
+      outputSection.classList.remove('hidden');
+      
+      // Prepare CSV for download
+      const blob = new Blob([csvText], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      document.getElementById('downloadCsv').onclick = () => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'model_output.csv';
+        a.click();
+      };
+    }
+  </script>
+</body>
+</html>
